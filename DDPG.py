@@ -5,30 +5,38 @@ import torch.optim as optim
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, action_bounds, offset):
+    def __init__(self, state_dim, goal_dim, output_dim, bounds, offset):
         super(Actor, self).__init__()
         # actor
         self.actor = nn.Sequential(
-                        nn.Linear(state_dim + state_dim, 64),
+                        nn.Linear(state_dim + goal_dim, 64),  # input will be always state and (sub)goal
                         nn.ReLU(),
                         nn.Linear(64, 64),
                         nn.ReLU(),
-                        nn.Linear(64, action_dim),
+                        nn.Linear(64, output_dim),
                         nn.Tanh()
                         )
+        print(self.actor)
         # max value of actions
-        self.action_bounds = action_bounds
+        # self.action_bounds = bounds
+        self.bounds = bounds
         self.offset = offset
         
     def forward(self, state, goal):
-        return (self.actor(torch.cat([state, goal], 1)) * self.action_bounds) + self.offset
+        # print("forward in Actor")
+        # print("state {}".format(state.shape))
+        # print("goal {}".format(goal.shape))
+        # cat = torch.cat((state, goal), 1)
+        # print("cat {}".format(cat.shape))
+        # return (self.actor(torch.cat([state, goal], 1)) * self.action_bounds) + self.offset
+        return (self.actor(torch.cat([state, goal], 1)) * self.bounds) + self.offset
         
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim, H):
+    def __init__(self, state_dim, action_dim, goal_dim, H):
         super(Critic, self).__init__()
         # UVFA critic
         self.critic = nn.Sequential(
-                        nn.Linear(state_dim + action_dim + state_dim, 64),
+                        nn.Linear(state_dim + action_dim + goal_dim, 64),
                         nn.ReLU(),
                         nn.Linear(64, 64),
                         nn.ReLU(),
@@ -42,12 +50,12 @@ class Critic(nn.Module):
         return -self.critic(torch.cat([state, action, goal], 1)) * self.H
     
 class DDPG:
-    def __init__(self, state_dim, action_dim, action_bounds, offset, lr, H):
+    def __init__(self, state_dim, goal_dim, action_dim, action_bounds, offset, lr, H):
         
-        self.actor = Actor(state_dim, action_dim, action_bounds, offset).to(device)
+        self.actor = Actor(state_dim, goal_dim, action_dim, action_bounds, offset).to(device)
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=lr)
         
-        self.critic = Critic(state_dim, action_dim, H).to(device)
+        self.critic = Critic(state_dim, action_dim, goal_dim, H).to(device)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=lr)
         
         self.mseLoss = torch.nn.MSELoss()
@@ -55,6 +63,7 @@ class DDPG:
     def select_action(self, state, goal):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
         goal = torch.FloatTensor(goal.reshape(1, -1)).to(device)
+        # print("SELECT ACTION; state dim {} goal dim {}".format(state.shape, goal.shape))
         return self.actor(state, goal).detach().cpu().data.numpy().flatten()
     
     def update(self, buffer, n_iter, batch_size):
@@ -62,7 +71,12 @@ class DDPG:
         for i in range(n_iter):
             # Sample a batch of transitions from replay buffer:
             state, action, reward, next_state, goal, gamma, done = buffer.sample(batch_size)
-            
+            # print("######################## GOT HERE ##############################")
+
+            # print("reward from sample {}".format(reward[:5]))
+            # print("action from sample {}".format(action[:5]))
+            # print("goal from sample {}".format(goal[:5]))
+
             # convert np arrays into tensors
             state = torch.FloatTensor(state).to(device)
             action = torch.FloatTensor(action).to(device)
@@ -71,6 +85,8 @@ class DDPG:
             goal = torch.FloatTensor(goal).to(device)
             gamma = torch.FloatTensor(gamma).reshape((batch_size,1)).to(device)
             done = torch.FloatTensor(done).reshape((batch_size,1)).to(device)
+
+            # print("####################### FINISH SAMPLING ###########################")
             
             # select next action
             next_action = self.actor(next_state, goal).detach()

@@ -10,6 +10,7 @@ class ReplayBuffer:
         assert len(transition) == 7, "transition must have length = 7"
         
         # transiton is tuple of (state, action, reward, next_state, goal, gamma, done)
+        # print("__________________replay buffer's action length from util {}".format(transition[1].shape))
         self.buffer.append(transition)
         self.size +=1
     
