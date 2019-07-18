@@ -6,12 +6,12 @@ from HAC import HAC
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def train():
+def test():
     #################### Hyperparameters ####################
     # env_name = "MountainCarContinuous-v0"
     env_name = "FetchPickAndPlace-v1"
     save_episode = 10  # keep saving every n episodes
-    max_episodes = 1000  # max num of training episodes
+    max_episodes = 10  # max num of training episodes
     random_seed = 0
     render = True
 
@@ -21,8 +21,6 @@ def train():
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.shape[0]
     goal_dim = env.goal.shape[0]
-
-    fparam = open("/home/robotics/projects/Hierarchical-Actor-Critic-HAC-PyTorch/parameters.txt", "w+")
 
     """
      Actions (both primitive and subgoal) are implemented as follows:
@@ -34,10 +32,8 @@ def train():
     # action_bounds = env.action_space.high[0]
     # action_offset = np.array([0.0])
     action_bounds = np.ones(action_dim) * 2.0
-    fparam.write("Action bounds \n {} \n".format(action_bounds))
     action_bounds = torch.FloatTensor(action_bounds.reshape(1, -1)).to(device)
     action_offset = np.ones(action_dim) * 0.01
-    fparam.write("Action offset \n {} \n".format(action_offset))
     action_offset = torch.FloatTensor(action_offset.reshape(1, -1)).to(device)
     # action_clip_low = np.array([-1.0 * action_bounds])
     # action_clip_high = np.array([action_bounds])
@@ -111,9 +107,6 @@ def train():
         subgoal_bounds[i] = (state_bounds[i][1] - state_bounds[i][0]) / 2
         subgoal_offset[i] = state_bounds[i][1] - subgoal_bounds[i]
 
-    fparam.write("Subgoal bounds \n {} \n".format(subgoal_bounds))
-    fparam.write("Subgoal offset \n {} \n".format(subgoal_offset))
-
     subgoal_bounds = torch.FloatTensor(subgoal_bounds.reshape(1, -1)).to(device)
     subgoal_offset = torch.FloatTensor(subgoal_offset.reshape(1, -1)).to(device)
     # subgoal_clip_low = valid_area_low
@@ -152,10 +145,6 @@ def train():
         np.array([vel_threshold for _ in range(11)]),
     ))
 
-    fparam.write("Endgoal thresholds \n {} \n".format(endgoal_thresholds))
-    fparam.write("Subgoal thresholds \n {} \n".format(subgoal_thresholds))
-    fparam.close()
-
     # HAC parameters:
     k_level = 2  # num of levels in hierarchy
     H = 30  # time horizon to achieve subgoal
@@ -188,8 +177,8 @@ def train():
                          state_clip_low, state_clip_high, exploration_action_noise, exploration_state_noise,
                          subgoal_clip_low, subgoal_clip_high, exploration_subgoal_noise)
 
-    # logging file:
-    log_f = open("log.txt", "w+")
+    # load agent
+    agent.load(directory, filename)
 
     # training procedure 
     for i_episode in range(1, max_episodes + 1):
@@ -198,27 +187,11 @@ def train():
 
         state = env.reset()
         goal_state = env.goal
-        # collecting experience in environment
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXX RUN HAC with goal {}".format(goal_state))
-        last_state, done = agent.run_HAC(env, k_level - 1, state, goal_state, False)
 
-        if agent.check_goal(last_state, goal_state, endgoal_thresholds):
-            print("################ Solved! ################ ")
-            name = filename + '_solved'
-            agent.save(directory, name)
+        agent.run_HAC(env, k_level - 1, state, goal_state, True)
 
-        # update all levels
-        agent.update(n_iter, batch_size)
-
-        # logging updates:
-        log_f.write('{},{}\n'.format(i_episode, agent.reward))
-        log_f.flush()
-
-        if i_episode % save_episode == 0:
-            agent.save(directory, filename)
-
-        print("Episode: {}\t Reward: {}".format(i_episode, agent.reward))
+        print("Episode: {}\t Reward: {}\t len: {}".format(i_episode, agent.reward, agent.timestep))
 
 
 if __name__ == '__main__':
-    train()
+    test()
