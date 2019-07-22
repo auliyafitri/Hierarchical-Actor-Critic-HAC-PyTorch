@@ -22,7 +22,7 @@ def train():
     action_dim = env.action_space.shape[0]
     goal_dim = env.goal.shape[0]
 
-    fparam = open("/home/robotics/projects/Hierarchical-Actor-Critic-HAC-PyTorch/fetchreach_parameters.txt", "w+")
+    fparam = open("/home/robotics/HRL/Hierarchical-Actor-Critic-HAC-PyTorch/fetchreach_parameters.txt", "w+")
     success_exp = 0
 
     """
@@ -156,7 +156,7 @@ def train():
     lr = 0.001
 
     # save trained models
-    directory = "/home/robotics/projects/Hierarchical-Actor-Critic-HAC-PyTorch/preTrained/{}/{}level".format(env_name,
+    directory = "/home/robotics/HRL/Hierarchical-Actor-Critic-HAC-PyTorch/preTrained/{}/{}level".format(env_name,
                                                                                                              k_level)
     filename = "HAC_{}".format(env_name)
     #########################################################
