@@ -223,4 +223,4 @@ class HAC:
 
     def load(self, directory, name):
         for i in range(self.k_level):
-            self.HAC[i].load(directory, name + '_solved_level_{}'.format(i))
+            self.HAC[i].load(directory, name + '_level_{}'.format(i))
